@@ -28,3 +28,33 @@ git clone https://github.com/nyfhuv-qimgug-vItby8/nyfhuv-qimgug-vItby8.git
 cd nyfhuv-qimgug-vItby8
 npm install
 npm start
+import { useDrag, useDrop } from 'react-dnd';
+###プロトタイプ
+const Piece = ({ type, position, movePiece }) => {
+  const [{ isDragging }, drag] = useDrag(() => ({
+    type: 'PIECE',
+    item: { type, position },
+    collect: (monitor) => ({
+      isDragging: !!monitor.isDragging(),
+    }),
+  }));
+
+  return (
+    <div ref={drag} style={{ opacity: isDragging ? 0.5 : 1, cursor: 'grab' }}>
+      {type}
+    </div>
+  );
+};
+
+const Square = ({ position, children, movePiece }) => {
+  const [, drop] = useDrop(() => ({
+    accept: 'PIECE',
+    drop: (item) => movePiece(item.position, position),
+  }));
+
+  return (
+    <div ref={drop} style={{ width: 50, height: 50, border: '1px solid black' }}>
+      {children}
+    </div>
+  );
+};
