@@ -1,6 +1,36 @@
 const fs = require('fs');
 
 const readmeContent = `# 世界一の将棋WEBアプリ
+name: ChatGPT Bot
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  chatgpt-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install openai axios
+
+      - name: Run ChatGPT Bot
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node ./scripts/chatgpt-bot.js
+
 
 ## 概要
 日本将棋連盟の公式ルールに準拠した高度な将棋WEBアプリです。  
