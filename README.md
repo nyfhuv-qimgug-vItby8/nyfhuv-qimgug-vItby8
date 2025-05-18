@@ -30,6 +30,55 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node ./scripts/chatgpt-bot.js
+        const { Configuration, OpenAIApi } = require("openai");
+const axios = require("axios");
+const { execSync } = require("child_process");
+
+// GitHubイベントの取得
+const event = JSON.parse(
+  execSync("jq -c .", { encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] })
+);
+const commentBody = event.comment.body;
+const userName = event.comment.user.login;
+const issueUrl = event.issue.html_url;
+const commentUrl = event.comment.url;
+
+// ChatGPTにメッセージを送信
+async function main() {
+  const config = new Configuration({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+  const openai = new OpenAIApi(config);
+  
+  // コメントのカテゴリ分類
+  const messages = [
+    { role: "system", content: "You are a helpful GitHub bot that supports code reviews, issue discussions, and architectural guidance." },
+    { role: "user", content: commentBody }
+  ];
+
+  const response = await openai.createChatCompletion({
+    model: "gpt-4.5-turbo",
+    messages: messages,
+  });
+
+  const reply = response.data.choices[0].message.content.trim();
+  console.log(`ChatGPT's response: ${reply}`);
+
+  // GitHubのコメントに返信
+  await axios.post(commentUrl, 
+    { body: `@${userName} ${reply}` },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    }
+  );
+  console.log("Reply posted to GitHub.");
+}
+
+main().catch(console.error);
+
 
 
 ## 概要
