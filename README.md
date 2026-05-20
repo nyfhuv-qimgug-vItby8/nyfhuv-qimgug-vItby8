@@ -1,233 +1,312 @@
-const fs = require('fs');
+# AI自己進化OS MVP 設計書
 
-const readmeContent = `# 世界一の将棋WEBアプリ
-name: ChatGPT Bot
+## 0. プロダクト定義
 
-on:
-  issue_comment:
-    types: [created]
-  pull_request_review_comment:
-    types: [created]
-
-jobs:
-  chatgpt-bot:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm install openai axios
-
-      - name: Run ChatGPT Bot
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node ./scripts/chatgpt-bot.js
-        const { Configuration, OpenAIApi } = require("openai");
-const axios = require("axios");
-const { execSync } = require("child_process");
-
-// GitHubイベントの取得
-const event = JSON.parse(
-  execSync("jq -c .", { encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] })
-);
-const commentBody = event.comment.body;
-const userName = event.comment.user.login;
-const issueUrl = event.issue.html_url;
-const commentUrl = event.comment.url;
-
-// ChatGPTにメッセージを送信
-async function main() {
-  const config = new Configuration({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-  const openai = new OpenAIApi(config);
-  
-  // コメントのカテゴリ分類
-  const messages = [
-    { role: "system", content: "You are a helpful GitHub bot that supports code reviews, issue discussions, and architectural guidance." },
-    { role: "user", content: commentBody }
-  ];
-
-  const response = await openai.createChatCompletion({
-    model: "gpt-4.5-turbo",
-    messages: messages,
-  });
-
-  const reply = response.data.choices[0].message.content.trim();
-  console.log(`ChatGPT's response: ${reply}`);
-
-  // GitHubのコメントに返信
-  await axios.post(commentUrl, 
-    { body: `@${userName} ${reply}` },
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-        Accept: "application/vnd.github.v3+json",
-      },
-    }
-  );
-  console.log("Reply posted to GitHub.");
-}
-
-main().catch(console.error);
-
-
-
-## 概要
-日本将棋連盟の公式ルールに準拠した高度な将棋WEBアプリです。  
-リアルタイムオンライン対戦やAI対戦、棋譜保存・解析機能を備えています。
+**AI自己進化OS** は、日々の行動・思考・学習・感情の記録をもとに、AIが本質的かつ実行可能な改善提案を返す「人生OS」です。  
+Todo消化ではなく、**行動力 / 継続力 / 思考力 / 自己理解 / 学習効率**を継続的に高めることを目的にします。
 
 ---
 
-## 特徴
-- 将棋盤のドラッグ＆ドロップ操作対応
-- AI連携（やねうら王などの強力エンジン）
-- 指し手の反則判定（予定：二歩、打ち歩詰め、千日手）
-- オンライン対戦・観戦モード
-- 段位認定システム
-- 棋譜の保存および解析
+## 1. MVPのゴールと非ゴール
+
+### MVPゴール
+1. **行動ログ入力**
+   - 学習・運動・読書・SNS時間・睡眠などを1日単位で記録
+2. **AI振り返り**
+   - OpenAI APIで当日＋直近履歴を分析し、以下を返却
+     - 今日の良かった点
+     - ボトルネック
+     - 改善提案（小さく実行可能）
+     - 明日の最重要行動
+3. **ダッシュボード**
+   - 連続記録、合計行動量、継続日数の可視化
+
+### 非ゴール（MVPではやらない）
+- SNSフィード、通知最適化、ゲーミフィケーション過多
+- 複雑な目標管理（OKR/プロジェクト管理）
+- 多人数コラボ機能
 
 ---
 
-## 動作環境とセットアップ
+## 2. UI/UXコンセプト（改善版）
 
-### 必要条件
-- Node.js v16以上
-- npm
+### デザイン原則
+- **Appleレベルの余白**: セクション間スペースを広く、情報密度を抑える
+- **Linearの速度感**: 入力導線を最短化（1画面1目的、遅延感のない遷移）
+- **Obsidianの集中感**: ダーク基調、コントラストは抑制し目の疲労を軽減
+- **未来感**: 深いネイビー + 微光アクセントで“思考空間”を演出
 
-### インストール手順
-\`\`\`bash
-git clone https://github.com/nyfhuv-qimgug-vItby8/nyfhuv-qimgug-vItby8.git
-cd nyfhuv-qimgug-vItby8
-npm install
-npm start
-\`\`\`
+### 禁止事項
+- SNS的な無限スクロール、通知中毒を誘発するUI
+- 過剰アニメーション、派手な色、情報の詰め込み
 
-### 環境変数
-- \`.env.example\`を参考に \`.env\` を作成し、APIキーやAIエンジン設定を追加してください。
+### カラートークン（例）
+- `bg`: `#070B14`（深いネイビー）
+- `panel`: `#0D1424`
+- `border`: `#1C2940`
+- `text-primary`: `#E8EEF9`
+- `text-muted`: `#96A2BC`
+- `accent`: `#6EA8FF`
 
----
-
-## 開発フロー
-
-### 初期セットアップ
-- \`setup.sh\` などのスクリプトで依存関係インストールやDBマイグレーションを自動化
-
-### コード品質
-- ESLint + Prettierでコード整形を統一
-- JSDoc形式のコメントでAPIや関数を明記
-- Reactコンポーネントは責務ごとに分割
-- 状態管理はReact ContextやReduxを活用
-
-### Issue管理
-- 機能追加は「Feature」ラベル、バグは「Bug」ラベルを使用
-- プロジェクトボードで進捗管理
-
-### プルリクエスト
-- PRテンプレート導入（動作確認、コードスタイル、テスト追加などチェックリスト付き）
-- 2名以上のレビュー承認を推奨
+### レイアウト方針
+- 最大幅 `max-w-5xl`
+- 主要カード間隔 `gap-8`
+- タイポは見出し/本文を厳格に2〜3階層に限定
+- 1画面あたり3主要情報ブロックまで
 
 ---
 
-## ライセンス
-本プロジェクトはMITライセンスのもとで公開しています。  
-詳細は\`LICENSE\`ファイルをご覧ください。
+## 3. 技術アーキテクチャ
+
+- **Next.js (App Router)**
+- **TypeScript**（strict）
+- **Tailwind CSS + shadcn/ui**
+- **Supabase**（DB/Auth）
+- **OpenAI API**（AI振り返り）
+- **Vercel**（デプロイ）
+
+### 設計方針
+- server actions中心（入力保存・AI分析実行）
+- 表示コンポーネントとロジック分離
+- 型定義は `lib/types` に集約
+- 将来拡張に備え、分析ロジックをサービス層へ分離
 
 ---
 
-## CI/CD（今後の予定）
-- GitHub Actionsによる自動テストとビルド
-- Lintチェック・ユニットテストの自動実行
-- NetlifyやVercel等への自動デプロイ
+## 4. ディレクトリ構成（提案）
+
+```txt
+.
+├─ app/
+│  ├─ (auth)/
+│  │  ├─ login/page.tsx
+│  │  └─ signup/page.tsx
+│  ├─ dashboard/page.tsx
+│  ├─ log/page.tsx
+│  ├─ reflections/page.tsx
+│  ├─ actions/
+│  │  ├─ activity.ts
+│  │  └─ reflection.ts
+│  ├─ layout.tsx
+│  └─ page.tsx
+├─ components/
+│  ├─ layout/
+│  │  ├─ app-shell.tsx
+│  │  └─ top-nav.tsx
+│  ├─ log/
+│  │  ├─ activity-log-form.tsx
+│  │  └─ metric-input.tsx
+│  ├─ dashboard/
+│  │  ├─ streak-card.tsx
+│  │  ├─ total-activity-card.tsx
+│  │  └─ continuity-card.tsx
+│  └─ reflection/
+│     ├─ reflection-card.tsx
+│     └─ insight-chip.tsx
+├─ lib/
+│  ├─ ai/
+│  │  ├─ prompt.ts
+│  │  └─ analyze.ts
+│  ├─ supabase/
+│  │  ├─ client.ts
+│  │  └─ server.ts
+│  ├─ types/
+│  │  ├─ db.ts
+│  │  └─ domain.ts
+│  └─ utils/
+│     ├─ date.ts
+│     └─ metrics.ts
+├─ supabase/
+│  └─ migrations/
+│     └─ 0001_init.sql
+├─ styles/
+│  └─ globals.css
+├─ .env.example
+└─ README.md
+```
 
 ---
 
-## サンプルコード：Reactでのドラッグ＆ドロップ駒操作
+## 5. セットアップ手順
 
-\`\`\`jsx
-import { useDrag, useDrop } from 'react-dnd';
-
-const Piece = ({ type, position, movePiece }) => {
-  const [{ isDragging }, drag] = useDrag(() => ({
-    type: 'PIECE',
-    item: { type, position },
-    collect: (monitor) => ({
-      isDragging: !!monitor.isDragging(),
-    }),
-  }));
-
-  return (
-    <div ref={drag} style={{ opacity: isDragging ? 0.5 : 1, cursor: 'grab' }}>
-      {type}
-    </div>
-  );
-};
-
-const Square = ({ position, children, movePiece }) => {
-  const [, drop] = useDrop(() => ({
-    accept: 'PIECE',
-    drop: (item) => movePiece(item.position, position),
-  }));
-
-  return (
-    <div ref={drop} style={{ width: 50, height: 50, border: '1px solid black' }}>
-      {children}
-    </div>
-  );
-};
-\`\`\`
-
----
-
-## ディレクトリ構成例
-
-\`\`\`
-/src
-  /components   # UIコンポーネント
-  /api          # API呼び出しロジック
-/server         # サーバー関連コード
-/docs           # ドキュメント
-\`\`\`
-`;
-
-fs.writeFileSync('README.md', readmeContent, 'utf-8');
-console.log('README.mdを作成しました。');
-# 世界一の将棋WEBアプリ
-
-## 概要
-日本将棋連盟の公式ルールに準拠した高度な将棋WEBアプリです。  
-リアルタイムオンライン対戦やAI対戦、棋譜保存・解析機能を備えています。
-
----
-
-## 特徴
-- 将棋盤のドラッグ＆ドロップ操作対応
-- AI連携（やねうら王などの強力エンジン）
-- 指し手の反則判定（予定：二歩、打ち歩詰め、千日手）
-- オンライン対戦・観戦モード
-- 段位認定システム
-- 棋譜の保存および解析
-
----
-
-## 動作環境とセットアップ
-
-### 必要条件
-- Node.js v16以上
-- npm
-
-### インストール手順
+1. プロジェクト作成
 ```bash
-git clone https://github.com/nyfhuv-qimgug-vItby8/nyfhuv-qimgug-vItby8.git
-cd nyfhuv-qimgug-vItby8
-npm install
-npm start
-import { useDrag, useDrop } from 'react-dnd';
+npx create-next-app@latest ai-self-evolution-os --typescript --tailwind --app
+```
+2. shadcn/ui導入
+```bash
+npx shadcn@latest init
+```
+3. 依存追加
+```bash
+npm i @supabase/supabase-js openai zod date-fns
+```
+4. Supabaseプロジェクト作成 & SQL適用（後述schema）
+5. `.env.local` を設定（後述）
+6. 開発起動
+```bash
+npm run dev
+```
+
+---
+
+## 6. 環境変数一覧
+
+```env
+# Next.js
+NEXT_PUBLIC_APP_NAME=AI自己進化OS
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# OpenAI
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4.1-mini
+
+# Optional
+APP_TIMEZONE=Asia/Tokyo
+```
+
+---
+
+## 7. DB Schema（MVP）
+
+```sql
+-- users
+create table if not exists public.users (
+  id uuid primary key references auth.users(id) on delete cascade,
+  display_name text,
+  timezone text default 'Asia/Tokyo',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- activity_logs
+create table if not exists public.activity_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  log_date date not null,
+  study_minutes int not null default 0 check (study_minutes >= 0),
+  exercise_minutes int not null default 0 check (exercise_minutes >= 0),
+  reading_minutes int not null default 0 check (reading_minutes >= 0),
+  sns_minutes int not null default 0 check (sns_minutes >= 0),
+  sleep_hours numeric(4,2) not null default 0 check (sleep_hours >= 0),
+  mood_score int check (mood_score between 1 and 10),
+  note text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(user_id, log_date)
+);
+
+-- ai_reflections
+create table if not exists public.ai_reflections (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  log_date date not null,
+  summary jsonb not null,
+  model text not null,
+  prompt_version text not null default 'v1',
+  created_at timestamptz not null default now(),
+  unique(user_id, log_date)
+);
+
+-- streaks
+create table if not exists public.streaks (
+  user_id uuid primary key references public.users(id) on delete cascade,
+  current_streak_days int not null default 0,
+  longest_streak_days int not null default 0,
+  last_logged_date date,
+  updated_at timestamptz not null default now()
+);
+```
+
+---
+
+## 8. AI分析仕様（強化版）
+
+### 分析対象
+- 行動パターン（活動の偏り、時間配分）
+- サボる時間帯（過去ログの未実行傾向）
+- SNS依存傾向（SNS時間と他行動の逆相関）
+- 継続率（直近7日/30日の記録率）
+- 集中しやすい条件（睡眠・気分・学習量の関係）
+
+### 出力フォーマット（JSON固定）
+```json
+{
+  "wins": ["..."],
+  "bottlenecks": ["..."],
+  "micro_actions": ["15分以内で実行可能な提案"],
+  "tomorrow_one_thing": "...",
+  "risk_alerts": ["..."],
+  "focus_conditions": ["..."]
+}
+```
+
+### プロンプト設計ルール
+- 抽象論禁止（「頑張る」「意識する」禁止）
+- 行動は**具体的・測定可能・小さく**
+- 心理学的継続性（実行ハードルを下げる）
+  - 例：実行意図（if-then）、環境設計、最小習慣
+
+---
+
+## 9. UI構成（画面単位）
+
+### 9.1 `/log` 行動ログ画面
+- 上部：今日の日付 + 1行ガイド
+- 中央：5指標入力（学習/運動/読書/SNS/睡眠）
+- 下部：メモ、保存ボタン
+- 原則：1分以内に入力完了
+
+### 9.2 `/reflections` AI振り返り画面
+- セクションA：今日の良かった点
+- セクションB：ボトルネック
+- セクションC：小さな改善提案（3件まで）
+- セクションD：明日の最重要行動（1つ）
+
+### 9.3 `/dashboard`
+- カード1：連続記録日数
+- カード2：合計行動量（週）
+- カード3：継続率（7日/30日）
+- 補助表示：SNS時間トレンド（控えめ）
+
+---
+
+## 10. Server Actions設計
+
+- `saveActivityLogAction(input)`
+  - バリデーション（zod）
+  - `activity_logs` upsert
+  - `streaks` 更新
+- `generateReflectionAction(logDate)`
+  - 当日 + 過去30日データ取得
+  - OpenAI分析実行
+  - `ai_reflections` upsert
+
+---
+
+## 11. 今後の拡張案（MVP後）
+
+1. 週次レビュー自動生成（週1）
+2. 目標別テンプレート（学習強化/睡眠改善等）
+3. 生体データ連携（Apple Health等）
+4. 習慣の因果分析（睡眠→集中→学習成果）
+5. 音声入力ログ
+
+---
+
+## 12. 実装時の品質チェックリスト
+
+- TypeScript strictで型エラー0
+- Server Actionsで副作用を一元化
+- 入力フォームはキーボード中心で高速操作可能
+- ダークUIのコントラスト比を確保
+- AI応答のJSONスキーマ検証
+- 失敗時はユーザーに次行動を示すエラーメッセージ
+
+---
+
+この設計は「小さいが完成度が高いMVP」を前提に、将来的な自己進化機能拡張へ無理なく接続できる構造です。
