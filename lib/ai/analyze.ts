@@ -13,9 +13,7 @@ const reflectionSchema = z.object({
 });
 
 export async function analyzeReflection(payload: object): Promise<ReflectionSummary> {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY is missing");
-  }
+  if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is missing");
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
@@ -48,10 +46,16 @@ export async function analyzeReflection(payload: object): Promise<ReflectionSumm
     }
   });
 
-  const parsed = reflectionSchema.safeParse(JSON.parse(response.output_text));
-  if (!parsed.success) {
-    throw new Error("Invalid reflection schema from model");
+  if (!response.output_text) throw new Error("Model returned empty output");
+
+  let json: unknown;
+  try {
+    json = JSON.parse(response.output_text);
+  } catch {
+    throw new Error("Model output is not valid JSON");
   }
 
+  const parsed = reflectionSchema.safeParse(json);
+  if (!parsed.success) throw new Error("Invalid reflection schema from model");
   return parsed.data;
 }
