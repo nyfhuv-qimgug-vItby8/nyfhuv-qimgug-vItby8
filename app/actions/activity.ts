@@ -47,6 +47,12 @@ export async function saveActivityLogAction(_: ActionState, formData: FormData):
   const payload = parsed.data;
   const userId = userIdParsed.data;
 
+  const { error: userError } = await supabase.from("users").upsert(
+    { id: userId, display_name: "Demo User" },
+    { onConflict: "id" }
+  );
+  if (userError) return { ok: false, message: `users 初期化に失敗しました: ${userError.message}` };
+
   const { error } = await supabase.from("activity_logs").upsert(
     {
       user_id: userId,
@@ -69,9 +75,7 @@ export async function saveActivityLogAction(_: ActionState, formData: FormData):
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (streakReadError) {
-    return { ok: false, message: `streak 読み込みに失敗しました: ${streakReadError.message}` };
-  }
+  if (streakReadError) return { ok: false, message: `streak 読み込みに失敗しました: ${streakReadError.message}` };
 
   const last = streakRow?.last_logged_date ? new Date(streakRow.last_logged_date) : null;
   const current = new Date(payload.logDate);
@@ -94,11 +98,9 @@ export async function saveActivityLogAction(_: ActionState, formData: FormData):
     { onConflict: "user_id" }
   );
 
-  if (streakWriteError) {
-    return { ok: false, message: `streak 更新に失敗しました: ${streakWriteError.message}` };
-  }
+  if (streakWriteError) return { ok: false, message: `streak 更新に失敗しました: ${streakWriteError.message}` };
 
   revalidatePath("/dashboard");
   revalidatePath("/reflections");
-  return { ok: true, message: "保存しました。ダッシュボードを更新しました。" };
+  return { ok: true, message: "保存しました。次にAI振り返りを生成してください。" };
 }

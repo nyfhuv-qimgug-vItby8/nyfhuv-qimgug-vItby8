@@ -13,6 +13,18 @@ const reflectionInputSchema = z.object({
 
 export async function generateReflectionAction(userId: string, logDate: string): Promise<ReflectionSummary> {
   const supabase = getSupabaseServerClient();
+
+  const { data: dayLog } = await supabase
+    .from("activity_logs")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("log_date", logDate)
+    .maybeSingle();
+
+  if (!dayLog) {
+    throw new Error("先にこの日付の行動ログを保存してください。");
+  }
+
   const { data: logs, error } = await supabase
     .from("activity_logs")
     .select("log_date, study_minutes, exercise_minutes, reading_minutes, sns_minutes, sleep_hours, mood_score, note")
@@ -21,9 +33,7 @@ export async function generateReflectionAction(userId: string, logDate: string):
     .order("log_date", { ascending: false })
     .limit(30);
 
-  if (error) {
-    throw new Error(`Failed to load activity logs: ${error.message}`);
-  }
+  if (error) throw new Error(`Failed to load activity logs: ${error.message}`);
 
   const summary = await analyzeReflection({ logDate, logs: logs ?? [] });
 
@@ -37,23 +47,15 @@ export async function generateReflectionAction(userId: string, logDate: string):
     { onConflict: "user_id,log_date" }
   );
 
-  if (upsertError) {
-    throw new Error(`Failed to save reflection: ${upsertError.message}`);
-  }
+  if (upsertError) throw new Error(`Failed to save reflection: ${upsertError.message}`);
 
   revalidatePath("/reflections");
   return summary;
 }
 
 export async function generateReflectionFromFormAction(_: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = reflectionInputSchema.safeParse({
-    userId: formData.get("userId"),
-    logDate: formData.get("logDate")
-  });
-
-  if (!parsed.success) {
-    return { ok: false, message: "userId または日付が不正です。" };
-  }
+  const parsed = reflectionInputSchema.safeParse({ userId: formData.get("userId"), logDate: formData.get("logDate") });
+  if (!parsed.success) return { ok: false, message: "userId または日付が不正です。" };
 
   try {
     await generateReflectionAction(parsed.data.userId, parsed.data.logDate);
