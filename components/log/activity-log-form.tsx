@@ -11,7 +11,7 @@ export function ActivityLogForm() {
 
   return (
     <form action={formAction} className="card space-y-5">
-      <input type="hidden" name="userId" value="demo-user-id" />
+      <input type="hidden" name="userId" value={process.env.NEXT_PUBLIC_DEMO_USER_ID ?? "00000000-0000-0000-0000-000000000001"} />
       <div className="space-y-1">
         <h2 className="text-xl">今日の行動ログ</h2>
         <p className="text-sm text-muted">小さく、正確に。1分で記録。</p>
