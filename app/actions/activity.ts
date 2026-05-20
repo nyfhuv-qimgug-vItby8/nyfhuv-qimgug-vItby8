@@ -24,9 +24,7 @@ function toNumber(value: FormDataEntryValue | null): number {
 
 export async function saveActivityLogAction(_: ActionState, formData: FormData): Promise<ActionState> {
   const userId = (formData.get("userId") as string | null)?.trim();
-  if (!userId) {
-    return { ok: false, message: "userId が未設定です。" };
-  }
+  if (!userId) return { ok: false, message: "userId が未設定です。" };
 
   const input: ActivityLogInput = {
     logDate: (formData.get("logDate") as string) ?? "",
@@ -40,9 +38,7 @@ export async function saveActivityLogAction(_: ActionState, formData: FormData):
   };
 
   const parsed = activitySchema.safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, message: "入力値が不正です。数値と日付を確認してください。" };
-  }
+  if (!parsed.success) return { ok: false, message: "入力値が不正です。数値と日付を確認してください。" };
 
   const supabase = getSupabaseServerClient();
   const payload = parsed.data;
@@ -61,12 +57,36 @@ export async function saveActivityLogAction(_: ActionState, formData: FormData):
     },
     { onConflict: "user_id,log_date" }
   );
+  if (error) return { ok: false, message: `保存に失敗しました: ${error.message}` };
 
-  if (error) {
-    return { ok: false, message: `保存に失敗しました: ${error.message}` };
-  }
+  const { data: streakRow } = await supabase
+    .from("streaks")
+    .select("current_streak_days,longest_streak_days,last_logged_date")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const last = streakRow?.last_logged_date ? new Date(streakRow.last_logged_date) : null;
+  const current = new Date(payload.logDate);
+  const diffDays = last ? Math.floor((current.getTime() - last.getTime()) / 86400000) : null;
+
+  let currentStreak = streakRow?.current_streak_days ?? 0;
+  if (diffDays === 1) currentStreak += 1;
+  else if (diffDays === 0) currentStreak = streakRow?.current_streak_days ?? 1;
+  else currentStreak = 1;
+
+  const longestStreak = Math.max(streakRow?.longest_streak_days ?? 0, currentStreak);
+
+  await supabase.from("streaks").upsert(
+    {
+      user_id: userId,
+      current_streak_days: currentStreak,
+      longest_streak_days: longestStreak,
+      last_logged_date: payload.logDate
+    },
+    { onConflict: "user_id" }
+  );
 
   revalidatePath("/dashboard");
   revalidatePath("/reflections");
-  return { ok: true, message: "保存しました。" };
+  return { ok: true, message: "保存しました。ダッシュボードを更新しました。" };
 }

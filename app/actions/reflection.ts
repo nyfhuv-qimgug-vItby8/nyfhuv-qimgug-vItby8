@@ -1,9 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { analyzeReflection } from "../../lib/ai/analyze";
 import { getSupabaseServerClient } from "../../lib/supabase/server";
-import type { ReflectionSummary } from "../../lib/types/domain";
+import type { ActionState, ReflectionSummary } from "../../lib/types/domain";
+
+const reflectionInputSchema = z.object({
+  userId: z.string().uuid(),
+  logDate: z.string().date()
+});
 
 export async function generateReflectionAction(userId: string, logDate: string): Promise<ReflectionSummary> {
   const supabase = getSupabaseServerClient();
@@ -37,4 +43,22 @@ export async function generateReflectionAction(userId: string, logDate: string):
 
   revalidatePath("/reflections");
   return summary;
+}
+
+export async function generateReflectionFromFormAction(_: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = reflectionInputSchema.safeParse({
+    userId: formData.get("userId"),
+    logDate: formData.get("logDate")
+  });
+
+  if (!parsed.success) {
+    return { ok: false, message: "userId または日付が不正です。" };
+  }
+
+  try {
+    await generateReflectionAction(parsed.data.userId, parsed.data.logDate);
+    return { ok: true, message: "AI振り返りを生成しました。" };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "AI振り返りの生成に失敗しました。" };
+  }
 }
