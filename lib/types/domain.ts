@@ -32,3 +32,16 @@ export const DEFAULT_ACTIVITY_INPUT: ActivityLogInput = {
   sleepHours: 0,
   note: ""
 };
+
+export function isReflectionSummary(value: unknown): value is ReflectionSummary {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    Array.isArray(v.wins) &&
+    Array.isArray(v.bottlenecks) &&
+    Array.isArray(v.micro_actions) &&
+    typeof v.tomorrow_one_thing === "string" &&
+    Array.isArray(v.risk_alerts) &&
+    Array.isArray(v.focus_conditions)
+  );
+}

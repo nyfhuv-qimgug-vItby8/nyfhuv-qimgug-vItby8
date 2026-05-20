@@ -5,6 +5,8 @@ import { z } from "zod";
 import { getSupabaseServerClient } from "../../lib/supabase/server";
 import type { ActionState, ActivityLogInput } from "../../lib/types/domain";
 
+const userIdSchema = z.string().uuid();
+
 const activitySchema = z.object({
   logDate: z.string().date(),
   studyMinutes: z.number().int().min(0),
@@ -23,8 +25,9 @@ function toNumber(value: FormDataEntryValue | null): number {
 }
 
 export async function saveActivityLogAction(_: ActionState, formData: FormData): Promise<ActionState> {
-  const userId = (formData.get("userId") as string | null)?.trim();
-  if (!userId) return { ok: false, message: "userId が未設定です。" };
+  const userIdRaw = (formData.get("userId") as string | null)?.trim();
+  const userIdParsed = userIdSchema.safeParse(userIdRaw);
+  if (!userIdParsed.success) return { ok: false, message: "userId が不正です。" };
 
   const input: ActivityLogInput = {
     logDate: (formData.get("logDate") as string) ?? "",
@@ -42,6 +45,7 @@ export async function saveActivityLogAction(_: ActionState, formData: FormData):
 
   const supabase = getSupabaseServerClient();
   const payload = parsed.data;
+  const userId = userIdParsed.data;
 
   const { error } = await supabase.from("activity_logs").upsert(
     {
@@ -59,11 +63,15 @@ export async function saveActivityLogAction(_: ActionState, formData: FormData):
   );
   if (error) return { ok: false, message: `保存に失敗しました: ${error.message}` };
 
-  const { data: streakRow } = await supabase
+  const { data: streakRow, error: streakReadError } = await supabase
     .from("streaks")
     .select("current_streak_days,longest_streak_days,last_logged_date")
     .eq("user_id", userId)
     .maybeSingle();
+
+  if (streakReadError) {
+    return { ok: false, message: `streak 読み込みに失敗しました: ${streakReadError.message}` };
+  }
 
   const last = streakRow?.last_logged_date ? new Date(streakRow.last_logged_date) : null;
   const current = new Date(payload.logDate);
@@ -76,7 +84,7 @@ export async function saveActivityLogAction(_: ActionState, formData: FormData):
 
   const longestStreak = Math.max(streakRow?.longest_streak_days ?? 0, currentStreak);
 
-  await supabase.from("streaks").upsert(
+  const { error: streakWriteError } = await supabase.from("streaks").upsert(
     {
       user_id: userId,
       current_streak_days: currentStreak,
@@ -85,6 +93,10 @@ export async function saveActivityLogAction(_: ActionState, formData: FormData):
     },
     { onConflict: "user_id" }
   );
+
+  if (streakWriteError) {
+    return { ok: false, message: `streak 更新に失敗しました: ${streakWriteError.message}` };
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/reflections");

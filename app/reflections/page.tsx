@@ -1,6 +1,7 @@
 import { ReflectionGenerateForm } from "../../components/reflection/reflection-generate-form";
 import { getDemoUserId } from "../../lib/config";
 import { getSupabaseServerClient } from "../../lib/supabase/server";
+import { isReflectionSummary } from "../../lib/types/domain";
 
 export default async function ReflectionsPage() {
   const supabase = getSupabaseServerClient();
@@ -15,12 +16,7 @@ export default async function ReflectionsPage() {
     .limit(1)
     .maybeSingle();
 
-  const summary = data?.summary as {
-    wins?: string[];
-    bottlenecks?: string[];
-    micro_actions?: string[];
-    tomorrow_one_thing?: string;
-  } | null;
+  const summary = isReflectionSummary(data?.summary) ? data.summary : null;
 
   return (
     <section className="space-y-6">
